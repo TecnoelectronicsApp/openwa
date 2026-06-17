@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `package.json`/API change. The remaining advisories are build-only (`sqlite3`→`node-gyp`→`tar`)
   and require a breaking `sqlite3` major, deferred.
 
+### Fixed
+
+- **Bulk-message batch status is now correct on cancel and stop-on-error.** A cancelled batch could be
+  silently reverted to `PROCESSING` (the final save overwrote the `CANCELLED` status with the stale
+  in-memory one), and a `stopOnError` abort was reported as `COMPLETED` whenever at least one message had
+  already been sent. The terminal status is now re-derived (cancelled → `CANCELLED` with reconciled
+  counters; stop-on-error → `FAILED`; otherwise `COMPLETED`/`FAILED`).
+- Bulk-message item `type` is now validated against the allowed set (`text`/`image`/`video`/`audio`/`document`)
+  with `@IsIn`, so an invalid type is rejected up front instead of failing mid-send.
+
 ## [0.2.8] - 2026-06-17
 
 The engine-pluggability release: the whatsapp-web.js delivery-ack, message-type, and JID specifics are
