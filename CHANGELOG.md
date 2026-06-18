@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-18
+
+Single-port deployment. The API now serves the bundled dashboard SPA itself, and the bundled Traefik
+reverse proxy is removed. This is a deployment/packaging change only — there are no API or
+application-code changes.
+
 ### Changed
 
 - **BREAKING — single-port dashboard: the API now serves the bundled dashboard SPA.** In production the
