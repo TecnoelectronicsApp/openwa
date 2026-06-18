@@ -7,15 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Adds the Tier-2 plugin capability layer — the foundation for shipping bot-shaped features as extension
-plugins instead of in core (#265).
+## [0.3.0] - 2026-06-18
+
+Engine pluggability and plugin extensibility. OpenWA can now run on a second, browser-free WhatsApp engine
+(Baileys) as a peer to whatsapp-web.js, and bot-shaped features can ship as first-party extension plugins
+on a scoped capability layer instead of living in core (#265).
 
 > ⚠️ **Breaking (plugin API):** `PluginContext.getService` is removed. It was a stub returning `undefined`
 > with no real consumers; out-of-tree plugins must migrate to the new `ctx.messages` / `ctx.engine`
-> capabilities. As a breaking change this is slated for the next minor (v0.3.0).
+> capabilities.
 
 ### Added
 
+- **Baileys engine (`ENGINE_TYPE=baileys`)** — a second, browser-free WhatsApp engine built on
+  `@whiskeysockets/baileys` (WebSocket/Noise protocol, no Chromium), selectable as a peer to the default
+  whatsapp-web.js engine. It supports linking (QR + pairing code); sending text, media
+  (image/video/audio/document/sticker), location, and contacts; reply / forward / react /
+  delete-for-everyone; full group management (create, participants, subject/description, invite codes),
+  profile pictures, and block/unblock; contacts, chats, and read receipts; and **receiving** messages with
+  their media, captions, location, quoted context, reactions, and remote deletes. URL media is fetched
+  through the same SSRF-guarded path as the default engine. Reply/forward/react/delete are backed by a
+  per-session persisted message store (`baileys_stored_messages`, bounded by `BAILEYS_MESSAGE_STORE_LIMIT`,
+  default 5000; cleared on logout; CASCADE-deleted with its session). `getChatHistory` and
+  labels/channels/status/catalog remain unsupported (HTTP 501) — Baileys has no on-demand history API, and
+  the rest are parity with the whatsapp-web.js engine. Config: `BAILEYS_AUTH_DIR` (default `./data/baileys`);
+  proxy is not yet supported on this engine. The engine loads **lazily** (dynamic `import()` only when
+  selected), so default-engine operators are unaffected and there is **no global Node version floor**.
+  (#299, #307, #308, #309, #310, #312)
 - **Plugin capability layer (Tier-2 extension plugins):** scoped `ctx.messages` (`sendText` / `reply`,
   routed through `MessageService` so persistence and the send pipeline are preserved) and read-only
   `ctx.engine` (`getGroupInfo` / `getContacts` / `getContactById` / `checkNumberExists` / `getChats`) on
@@ -27,19 +45,26 @@ plugins instead of in core (#265).
   documented as out of scope for now). (#294)
 - **`auto-reply` reference extension plugin**, first-party and **registered disabled by default** — enable
   it via `POST /plugins/auto-reply/enable` to exercise the capability layer end-to-end. (#294)
-- **Baileys engine (minimal slice)** — `ENGINE_TYPE=baileys` now selects a second, browser-free WhatsApp engine built on `@whiskeysockets/baileys` (WebSocket/Noise protocol, no Chromium). This first slice supports linking (QR + pairing code), sending and receiving **text**, recipient resolution, and typing presence; all other operations return HTTP 501 until later slices add a message store. Config: `BAILEYS_AUTH_DIR` (default `./data/baileys`). Proxy is not yet supported on this engine. (#299)
-- **Baileys engine — media/location/contact sends.** The Baileys engine (`ENGINE_TYPE=baileys`) can now send image/video/audio/document/sticker, location, and contact messages (slice 2a). URL media is fetched through the same SSRF-guarded path as the whatsapp-web.js engine (host guard + byte cap + timeout, no redirects). Reply/forward/react/delete remain unsupported (HTTP 501) until a later slice adds a message store. (#307)
-- **Baileys engine — reply/forward/react/delete.** The Baileys engine can now reply to, forward, react to, and delete (revoke-for-everyone) messages, backed by a persisted per-session message store (`baileys_stored_messages`, bounded by `BAILEYS_MESSAGE_STORE_LIMIT`, default 5000). Delete-for-me and reading reactions remain unsupported (HTTP 501). Note: this engine persists recent message protos to the data database (so these operations survive restarts) — more data-at-rest than the whatsapp-web.js engine; the store is bounded per session, cleared on logout, and CASCADE-deleted with its session, and operators with retention requirements can tune `BAILEYS_MESSAGE_STORE_LIMIT`. (#308)
-- **Baileys engine — group management + profile picture + block/unblock.** The Baileys engine can now list/inspect/create groups, manage participants (add/remove/promote/demote), leave a group, set its subject/description, and get/revoke its invite code, plus fetch a contact's profile picture and block/unblock contacts (slice 3a). Contacts/chats lists, read receipts, chat history, and `deleteChat` remain unsupported (HTTP 501) until a later slice adds a contact/chat store; labels/channels/status/catalog stay unsupported (parity with the whatsapp-web.js engine). (#309)
-- **Baileys engine — contacts, chats, read receipts.** The Baileys engine can now list contacts (`getContacts`/`getContactById`), resolve a contact's phone (`resolveContactPhone`, best-effort), list chats (`getChats`), mark a chat read (`sendSeen`), and delete a chat (`deleteChat`) — backed by a per-session in-memory store fed from Baileys' contact/chat sync events (rebuilt on each connect). `getChatHistory` remains unsupported (HTTP 501): Baileys has no on-demand history API. Labels/channels/status/catalog/message-reactions stay unsupported (parity with the whatsapp-web.js engine). With this, the Baileys engine implements every neutral capability it can meaningfully support. (#310)
+- **Group auto-translation extension plugin** — a first-party, **disabled-by-default** plugin that
+  auto-translates incoming group messages via LibreTranslate, built entirely on the new capability layer
+  (supersedes the earlier in-core approach). (#300)
+- **Schema-driven plugin config form (dashboard):** the Plugins page now renders an editable config form
+  for any plugin that exposes a `configSchema` (text / secret / number / boolean / enum), saved via the
+  existing plugin-config endpoint — previously only the engine plugin had editable fields. (#303)
+- **Spanish (`es`) dashboard locale** at full parity with English. (#292)
 
 ### Changed
 
-- **Baileys engine loads lazily** — `@whiskeysockets/baileys` is imported via a dynamic `import()` only when the Baileys engine is actually used (`ENGINE_TYPE=baileys`). Operators using the default whatsapp-web.js engine are unaffected and there is no global Node version floor. (#299)
 - Engine config is now **opaque per-engine**: `EngineFactory` passes only engine-neutral fields
   (`sessionId`/`proxyUrl`/`proxyType`) to an engine plugin and supplies engine-specific config (Puppeteer
   for whatsapp-web.js) as a blob via the plugin context, so a non-browser engine can be added without the
   factory knowing browser fields. No env-var or behavior change for existing deployments. (#296)
+
+### Fixed
+
+- **Dashboard stops polling for a QR code once its session is connected**, and the dev Docker Compose setup
+  proxies the dashboard to the API service correctly. (#311)
+- Italian locale: the message-template strings are now fully translated. (#301)
 
 ## [0.2.10] - 2026-06-17
 
