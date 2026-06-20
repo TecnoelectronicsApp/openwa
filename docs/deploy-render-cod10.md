@@ -1,125 +1,104 @@
-# Desplegar OpenWA en Render (Codigo 10)
+# Desplegar OpenWA en Render GRATIS (Codigo 10)
 
-Guía para tener WhatsApp **24/7 en la nube** sin usar la laptop.
+Guía para WhatsApp en la nube **sin tarjeta** usando el plan Free de Render.
 
 ## Arquitectura
 
 ```
-WhatsApp ←→ OpenWA (Render) ←→ cod10.vercel.app (bot Gemini) ←→ MongoDB
-                ↑
-         Admin cod10-admin (config: clave Gemini, prompt, URL Render)
+WhatsApp ←→ OpenWA (Render Free) ←→ cod10.vercel.app (bot Gemini) ←→ MongoDB
+                ↑                              ↑
+         Admin cod10-admin              Vercel Cron cada 14 min
+         (config + QR)                  (despierta Render free)
 ```
 
-## Requisitos
-
-- Cuenta en [Render](https://render.com)
-- Repo OpenWA en GitHub (sube `d:\portafolio\OpenWA` si aún no está)
-- Plan **Standard** (~2 GB RAM) — Chromium no funciona bien en Starter
-- Disco persistente **1 GB** (sesiones WhatsApp + SQLite)
-
-## Paso 1 — Subir OpenWA a GitHub
-
-Si el repo no está en GitHub:
-
-```powershell
-cd D:\portafolio\OpenWA
-git remote add origin https://github.com/TU-USUARIO/openwa.git
-git push -u origin main
-```
-
-## Paso 2 — Crear servicio en Render
+## Paso 1 — Blueprint en Render (sin tarjeta)
 
 1. Entra a https://dashboard.render.com
 2. **New +** → **Blueprint**
-3. Conecta el repo **OpenWA**
-4. Render detectará `render.yaml` y creará el servicio **openwa-cod10**
-5. Confirma y espera el build (10–15 min la primera vez)
+3. Repo: **TecnoelectronicsApp/openwa** (ya conectado)
+4. Render lee `render.yaml` con `plan: free` → **no pide tarjeta**
+5. Si falló antes con el plan de pago, pulsa **Retry** o crea Blueprint de nuevo
+6. Espera el build (10–15 min la primera vez)
 
-URL final: `https://openwa-cod10.onrender.com` (o el nombre que elijas)
+URL final: `https://openwa-cod10.onrender.com`
 
-## Paso 3 — Verificar que está vivo
+## Paso 2 — Verificar
 
-Abre en el navegador:
+- `https://openwa-cod10.onrender.com/api/health/ready` → OK
+- Primera carga puede tardar ~1 min (cold start)
 
-- `https://openwa-cod10.onrender.com/api/health/ready` → debe responder OK
-- `https://openwa-cod10.onrender.com` → dashboard OpenWA
+## Paso 3 — Copiar credenciales de Render
 
-## Paso 4 — Obtener API Key
+En el dashboard del servicio → **Environment**:
 
-En Render → servicio **openwa-cod10** → **Logs** (primer arranque):
+| Variable | Uso |
+|----------|-----|
+| `API_MASTER_KEY` | API Key OpenWA → admin Codigo 10 |
+| `WEBHOOK_SECRET` | Secreto webhook → admin + Vercel |
 
-Busca la línea `🔑 API Key:` o revisa el archivo en el disco persistente.
+## Paso 4 — Configurar admin (cod10-admin.vercel.app)
 
-También puedes crear una en el dashboard: **Settings → API Keys**.
-
-## Paso 5 — Vincular WhatsApp (una sola vez)
-
-1. Abre `https://openwa-cod10.onrender.com`
-2. Inicia sesión con la API Key
-3. Crea o abre sesión **codigo10**
-4. **Start** → escanea QR con WhatsApp
-5. Espera estado **Ready**
-6. Copia el **Session ID** (UUID)
-
-## Paso 6 — Configurar admin Codigo 10
-
-https://cod10-admin.vercel.app/#/admin/configuration → **Bot WhatsApp (IA)**
+**Configuración → Bot WhatsApp (IA)**:
 
 | Campo | Valor |
 |-------|-------|
-| Bot activo | ✓ |
-| Clave API Gemini | tu clave Google AI Studio |
-| Prompt del bot | instrucciones del asistente |
-| URL servidor OpenWA | `https://openwa-cod10.onrender.com` |
-| ID sesión | UUID del paso 5 |
-| Clave API OpenWA | `owa_...` del paso 4 |
-| Secreto webhook | copia de Render env `WEBHOOK_SECRET` |
+| URL OpenWA | `https://openwa-cod10.onrender.com` |
+| API Key | `API_MASTER_KEY` de Render |
+| Webhook secret | `WEBHOOK_SECRET` de Render |
+| Gemini API Key | tu clave |
+| Prompt | el que quieras |
 
-**Guardar** (publica en Cloudinary).
+Guarda → escanea el **QR** desde el admin.
 
-## Paso 7 — Registrar webhook
+## Paso 5 — Variables en Vercel (cod10)
 
-Desde cualquier PC (solo una vez):
+En el proyecto **platform** de Vercel:
+
+```
+OPENWA_BASE_URL=https://openwa-cod10.onrender.com
+OPENWA_API_KEY=<API_MASTER_KEY de Render>
+OPENWA_SESSION_ID=<id sesión del admin>
+WEBHOOK_SECRET=<WEBHOOK_SECRET de Render>
+CRON_SECRET=<opcional, string aleatorio para proteger keepalive>
+```
+
+El cron `/api/bot/keepalive` (cada 14 min) evita que Render se duerma.
+
+## Paso 6 — Registrar webhook
+
+Desde tu PC (con Node):
 
 ```powershell
 cd D:\portafolio\food-delivery-singlevendor
 $env:OPENWA_BASE_URL="https://openwa-cod10.onrender.com"
-$env:OPENWA_API_KEY="owa_..."
-$env:OPENWA_SESSION_ID="uuid-sesion"
-$env:COD10_VERCEL_URL="https://cod10.vercel.app"
-$env:WEBHOOK_SECRET="mismo-secreto-que-admin-y-render"
+$env:OPENWA_API_KEY="<API_MASTER_KEY>"
+$env:WEBHOOK_SECRET="<WEBHOOK_SECRET>"
 node scripts/setup-openwa-webhook.mjs
 ```
 
-## Paso 8 — Probar
+O desde Swagger: `POST /api/webhooks` con URL `https://cod10.vercel.app/api/bot/webhook`.
 
-Desde otro teléfono, escribe al WhatsApp vinculado:
+## Limitaciones del plan Free
 
-> ¿Qué productos tienen?
+| Limitación | Qué pasa | Mitigación |
+|------------|----------|------------|
+| 512 MB RAM | Chromium lento o reinicios | Args optimizados en render.yaml |
+| Sin disco | Pierdes sesión al reiniciar | Escanea QR otra vez en admin |
+| Se duerme ~15 min | Bot no responde | Cron Vercel cada 14 min |
+| Render reinicia servicios | QR otra vez | Normal en free tier |
 
-Debe responder el bot con Gemini.
-
-## Variables importantes en Render
-
-| Variable | Descripción |
-|----------|-------------|
-| `API_MASTER_KEY` | Generada automáticamente |
-| `WEBHOOK_SECRET` | Generada — copiar al admin |
-| `CORS_ORIGINS` | cod10.vercel.app + admin |
-| `RENDER_EXTERNAL_URL` | URL pública (Render la inyecta) |
-
-## Coste estimado
-
-- Web Standard: ~$25/mes
-- Disco 1 GB: ~$0.25/mes
-- Vercel cod10: según tu plan actual
+Para producción estable 24/7 con sesión persistente: usa `render.paid.yaml` (~$26/mes).
 
 ## Solución de problemas
 
-| Problema | Solución |
-|----------|----------|
-| Build falla | Revisa logs Render; Dockerfile necesita ~10 min |
-| Chromium crash | Confirma plan Standard, no Starter |
-| Sesión se pierde | Verifica disco montado en `/app/data` |
-| Bot no responde | Revisa webhook + admin guardado + logs Vercel |
-| 401 webhook | `WEBHOOK_SECRET` igual en Render, admin y script |
+| Problema | Acción |
+|----------|--------|
+| Blueprint pide tarjeta | Confirma que el repo tiene `plan: free` en render.yaml y pulsa Retry |
+| Build falla | Revisa logs Render; suele ser timeout Docker — reintenta |
+| QR no carga | Espera cold start; abre URL directa del servicio |
+| Bot no responde | Verifica webhook, admin guardado, logs Vercel |
+| Servicio dormido | Abre URL o espera el cron keepalive |
+
+## Plan de pago (opcional)
+
+Renombra `render.paid.yaml` → `render.yaml` para Standard + disco 1 GB (~$26/mes).

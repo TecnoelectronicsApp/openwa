@@ -1,25 +1,20 @@
-# OpenWA — Codigo 10 en Render PLAN GRATUITO
-# Blueprint: https://dashboard.render.com → New → Blueprint → TecnoelectronicsApp/openwa
-#
-# Sin tarjeta. Limitaciones del tier free:
-# - 512 MB RAM (Chromium optimizado con --single-process)
-# - Sin disco persistente → escanea QR de nuevo tras reinicio
-# - Se duerme ~15 min sin tráfico → Vercel cron en cod10 lo despierta cada 14 min
-
+# OpenWA — plan de pago (~$26/mes). Renombra a render.yaml si necesitas producción 24/7 estable.
 services:
   - type: web
     name: openwa-cod10
     runtime: docker
-    plan: free
+    plan: standard
     region: ohio
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /api/health/ready
+    disk:
+      name: openwa-data
+      mountPath: /app/data
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
-      - key: NODE_OPTIONS
-        value: --max-old-space-size=384
       - key: LOG_LEVEL
         value: info
       - key: AUTO_START_SESSIONS
@@ -31,19 +26,21 @@ services:
       - key: PUPPETEER_EXECUTABLE_PATH
         value: /usr/bin/chromium
       - key: PUPPETEER_ARGS
-        value: --no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-gpu,--single-process,--disable-software-rasterizer,--disable-extensions
+        value: --no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-gpu
       - key: SESSION_DATA_PATH
         value: /app/data/sessions
       - key: STORAGE_TYPE
         value: local
       - key: STORAGE_LOCAL_PATH
         value: /app/data/media
+      - key: PLUGINS_DIR
+        value: /app/data/plugins
       - key: DATABASE_TYPE
         value: sqlite
       - key: DATABASE_NAME
-        value: ./data/openwa.sqlite
+        value: /app/data/openwa.sqlite
       - key: DATABASE_SYNCHRONIZE
-        value: true
+        value: false
       - key: MAIN_DATABASE_SYNCHRONIZE
         value: true
       - key: REDIS_ENABLED
