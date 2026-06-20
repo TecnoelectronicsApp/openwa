@@ -1,0 +1,10 @@
+{
+  "id": "cod10-gemini",
+  "name": "Codigo 10 Gemini Bot",
+  "version": "1.0.0",
+  "type": "extension",
+  "description": "Bot de atención al cliente con IA Gemini conectado al catálogo Cod10 (productos, precios y cuentas bancarias).",
+  "main": "index.ts",
+  "permissions": ["messages:send"],
+  "sessions": ["*"]
+}

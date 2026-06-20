@@ -1,6 +1,7 @@
 import { Injectable, Module, OnModuleInit } from '@nestjs/common';
 import { PluginLoaderService, PluginManifest, PluginType } from '../../core/plugins';
 import { AutoReplyPlugin } from './auto-reply';
+import { Cod10GeminiPlugin } from './cod10-gemini';
 import { TranslationPlugin } from './translation';
 import { createLogger } from '../../common/services/logger.service';
 
@@ -75,6 +76,65 @@ export class ExtensionsRegistrar implements OnModuleInit {
 
     this.pluginLoader.registerBuiltInPlugin(translationManifest, new TranslationPlugin());
     this.logger.log('Translation plugin registered (disabled)');
+
+    const cod10GeminiManifest: PluginManifest = {
+      id: 'cod10-gemini',
+      name: 'Codigo 10 Gemini Bot',
+      version: '1.0.0',
+      type: PluginType.EXTENSION,
+      description:
+        'Bot de atención al cliente con IA Gemini conectado al catálogo Cod10 (productos, precios y cuentas bancarias).',
+      main: 'index.ts',
+      permissions: ['messages:send'],
+      sessions: ['*'],
+      configSchema: {
+        type: 'object',
+        properties: {
+          cod10ApiUrl: {
+            type: 'string',
+            title: 'URL Cod10 (Vercel)',
+            description: 'Base URL de la plataforma Cod10 (ej. https://cod10.vercel.app). Lee productos de MongoDB vía GraphQL.',
+            default: 'https://cod10.vercel.app',
+            required: true,
+          },
+          cod10ApiKey: {
+            type: 'string',
+            title: 'Bot API Key',
+            description: 'Clave BOT_API_KEY configurada en Vercel (cod10 platform).',
+            secret: true,
+          },
+          geminiApiKey: {
+            type: 'string',
+            title: 'Gemini API Key',
+            description: 'Clave de Google AI Studio / Gemini API.',
+            secret: true,
+            required: true,
+          },
+          geminiModel: {
+            type: 'string',
+            title: 'Modelo Gemini',
+            description: 'Modelo a usar (ej. gemini-2.0-flash).',
+            default: 'gemini-2.0-flash',
+          },
+          systemPrompt: {
+            type: 'string',
+            title: 'Prompt del sistema',
+            description: 'Instrucciones base para el asistente de ventas.',
+          },
+          replyInGroups: {
+            type: 'boolean',
+            title: 'Responder en grupos',
+            description: 'Si está activo, el bot también responde en chats de grupo.',
+            default: false,
+          },
+          catalogTimeoutMs: { type: 'number', title: 'Timeout catálogo (ms)', default: 10000 },
+          geminiTimeoutMs: { type: 'number', title: 'Timeout Gemini (ms)', default: 30000 },
+        },
+      },
+    };
+
+    this.pluginLoader.registerBuiltInPlugin(cod10GeminiManifest, new Cod10GeminiPlugin());
+    this.logger.log('Cod10 Gemini bot plugin registered (disabled)');
   }
 }
 

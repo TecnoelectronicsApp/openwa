@@ -1,0 +1,63 @@
+# OpenWA en Render — Codigo 10 (WhatsApp 24/7)
+# Despliegue: https://dashboard.render.com → New → Blueprint → conectar repo OpenWA
+#
+# Requisitos: plan Standard (Chromium necesita ~2 GB RAM) + disco persistente 1 GB
+
+services:
+  - type: web
+    name: openwa-cod10
+    runtime: docker
+    plan: standard
+    region: ohio
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health/ready
+    disk:
+      name: openwa-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: AUTO_START_SESSIONS
+        value: true
+      - key: ENGINE_TYPE
+        value: whatsapp-web.js
+      - key: PUPPETEER_HEADLESS
+        value: true
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /usr/bin/chromium
+      - key: PUPPETEER_ARGS
+        value: --no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-gpu
+      - key: SESSION_DATA_PATH
+        value: /app/data/sessions
+      - key: STORAGE_TYPE
+        value: local
+      - key: STORAGE_LOCAL_PATH
+        value: /app/data/media
+      - key: PLUGINS_DIR
+        value: /app/data/plugins
+      - key: DATABASE_TYPE
+        value: sqlite
+      - key: DATABASE_NAME
+        value: /app/data/openwa.sqlite
+      - key: DATABASE_SYNCHRONIZE
+        value: false
+      - key: MAIN_DATABASE_SYNCHRONIZE
+        value: true
+      - key: REDIS_ENABLED
+        value: false
+      - key: QUEUE_ENABLED
+        value: false
+      - key: WEBHOOK_SSRF_PROTECT
+        value: true
+      - key: ENABLE_SWAGGER
+        value: true
+      - key: CORS_ORIGINS
+        value: https://cod10.vercel.app,https://cod10-admin.vercel.app
+      - key: API_MASTER_KEY
+        generateValue: true
+      - key: WEBHOOK_SECRET
+        generateValue: true

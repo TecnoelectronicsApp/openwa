@@ -1,0 +1,13 @@
+{
+  "name": "cod10-openwa-setup",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Scripts de configuración OpenWA ↔ Codigo 10 (bot en cod10.vercel.app)",
+  "scripts": {
+    "setup:webhook": "tsx scripts/setup-webhook.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
